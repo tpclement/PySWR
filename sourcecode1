@@ -1,0 +1,44 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from sklearn.metrics import r2_score
+
+def VG(si,tetar,tetas,n,sib): # Model for function for VG model
+    alpha=1/sib
+    m=1-(1/n)
+    teta=tetar+((tetas-tetar)*(1/(1+(alpha*si)**n))**m)
+    return teta
+
+def BC(si,tetar,tetas,lamda,sib): # Model for function BC model
+    teta=np.zeros(len(si))
+    for i in range(len(si)):
+      if si[i]>sib:
+         teta[i]=tetar+((tetas-tetar)*(si[i]/sib)**-lamda)
+      else:
+         teta[i]=tetas
+    return teta
+
+def main():
+    filename= r"soildata.csv" #input file name; path will be needed if the file is not local
+    indata=np.loadtxt(filename,delimiter=",")
+    sai=np.copy(indata[:,0])  #first column stored as water potential sai
+    teta=np.copy(indata[:,1]) #second column stored as teta
+    SWRfunc= VG #select VG or BC
+    Solver= 'trf' # select 'lm', 'trf' or 'dogbox'
+    if Solver=="lm":
+       init_vals=[0.05,0.45,1,1] #Four parameters tetar,tetas,n or lamda, alpha or beta 
+       fitP,covar=curve_fit(SWRfunc,sai,teta,p0=init_vals) # Call solver
+    else:
+       init_vals=[0.05,0.45,1,1] #Four parameters--tetar,tetas,n or lamda, alpha or sib
+       bvals=[(0,0,1,0),(1,1,100,100)] #give the lower and upper bounds
+       fitP,covar=curve_fit(SWRfunc,sai,teta,p0=init_vals,method=Solver,bounds=bvals) #Solver
+    tetamodel= SWRfunc(sai,fitP[0],fitP[1],fitP[2],fitP[3])  #fitted SWR function
+    error=[np.absolute(covar[i][i])**0.5 for i in range (len(fitP))]
+    R2=r2_score(teta,tetamodel)
+    print (fitP) #Output fitted parameters tetar, tetas,n or lamda, alpha or beta
+    print (error) #parameter error estimates
+    print (R2) #R2 value of the fit
+    plt.plot(sai,tetamodel)
+    plt.plot(sai,teta,'bo')
+    plt.show()
+main()
